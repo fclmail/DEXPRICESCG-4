@@ -1,28 +1,38 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Polygon DEX Live Price Viewer</title>
+  <title>Polygon DEX Live Prices</title>
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
     body {
       background-color: #001F3F;
       color: white;
       font-family: Arial, sans-serif;
       padding: 20px;
+      margin: 0;
     }
     input, button {
-      padding: 10px;
+      padding: 12px;
       margin-top: 10px;
       width: 100%;
       max-width: 500px;
       border-radius: 5px;
       border: none;
+      font-size: 16px;
     }
     button {
       background-color: #0074D9;
       color: white;
       cursor: pointer;
+    }
+    #walletAddress {
+      margin-top: 10px;
+      font-size: 14px;
+      color: #7FDBFF;
+      word-break: break-all;
     }
     table {
       margin-top: 20px;
@@ -34,6 +44,7 @@
       border: 1px solid #044;
       padding: 10px;
       text-align: center;
+      font-size: 14px;
     }
     th {
       background-color: #033;
@@ -48,9 +59,10 @@
 </head>
 <body>
 
-<h2>Polygon Live DEX Token Prices</h2>
+<h2>🔍 Polygon Live DEX Token Prices</h2>
 <button onclick="connectWallet()">🔗 Connect Wallet</button>
-<br><br>
+<div id="walletAddress"></div>
+<br>
 <input id="tokenAddress" placeholder="Enter ERC20 token address on Polygon (e.g. WETH)" />
 <button onclick="fetchPrices()">Fetch Prices</button>
 
@@ -79,11 +91,22 @@ const DEX_ROUTERS = [
 let provider, signer;
 
 async function connectWallet() {
-  if (!window.ethereum) return alert("Install MetaMask.");
-  provider = new ethers.providers.Web3Provider(window.ethereum);
-  await provider.send("eth_requestAccounts", []);
-  signer = provider.getSigner();
-  alert("Wallet connected");
+  try {
+    if (typeof window.ethereum === 'undefined') {
+      alert("MetaMask not detected. Open this page in MetaMask mobile.");
+      window.location.href = "https://metamask.app.link/dapp/" + window.location.href.replace(/^https?:\/\//, '');
+      return;
+    }
+
+    provider = new ethers.providers.Web3Provider(window.ethereum);
+    await provider.send("eth_requestAccounts", []);
+    signer = provider.getSigner();
+    const address = await signer.getAddress();
+    document.getElementById("walletAddress").innerText = `Connected: ${address}`;
+  } catch (err) {
+    console.error("Wallet connection failed", err);
+    alert("Failed to connect wallet.");
+  }
 }
 
 async function fetchPrice(routerAddress, tokenAddress) {
