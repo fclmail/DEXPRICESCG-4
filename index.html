@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Polygon DEX Live Price Viewer</title>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
+  <style>
+    body {
+      background-color: #001F3F;
+      color: white;
+      font-family: Arial, sans-serif;
+      padding: 20px;
+    }
+    input, button {
+      padding: 10px;
+      margin-top: 10px;
+      width: 100%;
+      max-width: 500px;
+      border-radius: 5px;
+      border: none;
+    }
+    button {
+      background-color: #0074D9;
+      color: white;
+      cursor: pointer;
+    }
+    table {
+      margin-top: 20px;
+      border-collapse: collapse;
+      width: 100%;
+      background-color: #022;
+    }
+    th, td {
+      border: 1px solid #044;
+      padding: 10px;
+      text-align: center;
+    }
+    th {
+      background-color: #033;
+    }
+    tr.best td {
+      background-color: #004d00;
+    }
+    tr.worst td {
+      background-color: #4d0000;
+    }
+  </style>
+</head>
+<body>
+
+<h2>Polygon Live DEX Token Prices</h2>
+<button onclick="connectWallet()">🔗 Connect Wallet</button>
+<br><br>
+<input id="tokenAddress" placeholder="Enter ERC20 token address on Polygon (e.g. WETH)" />
+<button onclick="fetchPrices()">Fetch Prices</button>
+
+<table>
+  <thead>
+    <tr>
+      <th>DEX</th>
+      <th>Price per Token ($1 USDC)</th>
+    </tr>
+  </thead>
+  <tbody id="priceTable"></tbody>
+</table>
+
+<script>
+const USDC_ADDRESS = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174";
+const USDC_DECIMALS = 6;
+
+const DEX_ROUTERS = [
+  { name: "QuickSwap", address: "0xa5E0829CaCEd8fFDD4De3c43696c57F7D7A678ff" },
+  { name: "SushiSwap", address: "0x1b02da8cb0d097eb8d57a175b88c7d8b47997506" },
+  { name: "ApeSwap", address: "0xC0788A3aD43d79aa53B09c2EaCc313A787d1d607" },
+  { name: "KyberSwap", address: "0x546C79662E028B661dFB4767664d0273184E4dD1" },
+  { name: "JetSwap", address: "0x312Bc7eAAF93f1C60Dc5AfC115FcCDE161055FB0" }
+];
+
+let provider, signer;
+
+async function connectWallet() {
+  if (!window.ethereum) return alert("Install MetaMask.");
+  provider = new ethers.providers.Web3Provider(window.ethereum);
+  await provider.send("eth_requestAccounts", []);
+  signer = provider.getSigner();
+  alert("Wallet connected");
+}
+
+async function fetchPrice(routerAddress, tokenAddress) {
+  try {
+    const routerAbi = ["function getAmountsOut(uint amountIn, address[] memory path) view returns (uint[] memory)"];
+    const router = new ethers.Contract(routerAddress, routerAbi, provider);
+    const amountIn = ethers.utils.parseUnits("1", USDC_DECIMALS);
+    const path = [USDC_ADDRESS, tokenAddress];
+    const amountsOut = await router.getAmountsOut(amountIn, path);
+    const out = amountsOut[1];
+    const decimals = await getTokenDecimals(tokenAddress);
+    return parseFloat(ethers.utils.formatUnits(out, decimals));
+  } catch (e) {
+    return null;
+  }
+}
+
+async function getTokenDecimals(tokenAddress) {
+  const abi = ["function decimals() view returns (uint8)"];
+  const token = new ethers.Contract(tokenAddress, abi, provider);
+  return await token.decimals();
+}
+
+async function fetchPrices() {
+  const token = document.getElementById("tokenAddress").value.trim();
+  if (!ethers.utils.isAddress(token)) {
+    alert("Invalid ERC20 token address.");
+    return;
+  }
+
+  const table = document.getElementById("priceTable");
+  table.innerHTML = "<tr><td colspan='2'>Fetching...</td></tr>";
+
+  const prices = [];
+  for (const dex of DEX_ROUTERS) {
+    const price = await fetchPrice(dex.address, token);
+    if (price) prices.push({ ...dex, price });
+  }
+
+  if (prices.length === 0) {
+    table.innerHTML = "<tr><td colspan='2'>No valid prices found.</td></tr>";
+    return;
+  }
+
+  const min = Math.min(...prices.map(p => p.price));
+  const max = Math.max(...prices.map(p => p.price));
+
+  table.innerHTML = "";
+  for (const p of prices) {
+    const rowClass = p.price === min ? "best" : (p.price === max ? "worst" : "");
+    table.innerHTML += `
+      <tr class="${rowClass}">
+        <td>${p.name}</td>
+        <td>${p.price.toFixed(6)}</td>
+      </tr>
+    `;
+  }
+}
+
+// Auto-refresh every 8 seconds
+setInterval(() => {
+  const addr = document.getElementById("tokenAddress").value.trim();
+  if (ethers.utils.isAddress(addr)) fetchPrices();
+}, 8000);
+</script>
+
+</body>
+</html>
