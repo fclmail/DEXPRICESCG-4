@@ -1,9 +1,8 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Polygon DEX Live Prices</title>
+  <title>Polygon Live DEX Prices</title>
   <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <style>
@@ -59,11 +58,11 @@
 </head>
 <body>
 
-<h2>🔍 Polygon Live DEX Token Prices</h2>
+<h2>🔍 Polygon DEX Live Token Prices</h2>
 <button onclick="connectWallet()">🔗 Connect Wallet</button>
 <div id="walletAddress"></div>
 <br>
-<input id="tokenAddress" placeholder="Enter ERC20 token address on Polygon (e.g. WETH)" />
+<input id="tokenAddress" placeholder="Enter Polygon ERC20 Token Address (e.g. WETH)" />
 <button onclick="fetchPrices()">Fetch Prices</button>
 
 <table>
@@ -77,7 +76,7 @@
 </table>
 
 <script>
-const USDC_ADDRESS = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174";
+const USDC_ADDRESS = "0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174"; // Polygon USDC
 const USDC_DECIMALS = 6;
 
 const DEX_ROUTERS = [
@@ -88,37 +87,38 @@ const DEX_ROUTERS = [
   { name: "JetSwap", address: "0x312Bc7eAAF93f1C60Dc5AfC115FcCDE161055FB0" }
 ];
 
-let provider, signer;
+let provider;
+let signer;
 
 async function connectWallet() {
   try {
-    if (typeof window.ethereum === 'undefined') {
-      alert("MetaMask not detected. Open this page in MetaMask mobile.");
-      window.location.href = "https://metamask.app.link/dapp/" + window.location.href.replace(/^https?:\/\//, '');
+    if (!window.ethereum) {
+      const link = "https://metamask.app.link/dapp/" + window.location.href.replace(/^https?:\/\//, "");
+      alert("MetaMask not detected. Try opening in MetaMask mobile.\n\nRedirecting...");
+      window.location.href = link;
       return;
     }
 
-    provider = new ethers.providers.Web3Provider(window.ethereum);
+    provider = new ethers.providers.Web3Provider(window.ethereum, "any");
     await provider.send("eth_requestAccounts", []);
     signer = provider.getSigner();
     const address = await signer.getAddress();
     document.getElementById("walletAddress").innerText = `Connected: ${address}`;
   } catch (err) {
-    console.error("Wallet connection failed", err);
+    console.error("Wallet connection failed:", err);
     alert("Failed to connect wallet.");
   }
 }
 
 async function fetchPrice(routerAddress, tokenAddress) {
   try {
-    const routerAbi = ["function getAmountsOut(uint amountIn, address[] memory path) view returns (uint[] memory)"];
-    const router = new ethers.Contract(routerAddress, routerAbi, provider);
-    const amountIn = ethers.utils.parseUnits("1", USDC_DECIMALS);
+    const abi = ["function getAmountsOut(uint amountIn, address[] memory path) view returns (uint[] memory)"];
+    const router = new ethers.Contract(routerAddress, abi, provider);
+    const amountIn = ethers.utils.parseUnits("1", USDC_DECIMALS); // simulate $1 USDC
     const path = [USDC_ADDRESS, tokenAddress];
     const amountsOut = await router.getAmountsOut(amountIn, path);
-    const out = amountsOut[1];
     const decimals = await getTokenDecimals(tokenAddress);
-    return parseFloat(ethers.utils.formatUnits(out, decimals));
+    return parseFloat(ethers.utils.formatUnits(amountsOut[1], decimals));
   } catch (e) {
     return null;
   }
@@ -175,3 +175,4 @@ setInterval(() => {
 
 </body>
 </html>
+
